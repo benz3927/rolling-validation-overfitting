@@ -40,11 +40,11 @@ python3 robustness/summarize.py
 
 These simulations support improved pairwise selection over the tested sample sizes, not a proof of asymptotic consistency. Every candidate is capped at 400 and eventually the sequences coincide. The observed cancellation is modest over this range; its asymptotic order remains open.
 
-Before submission:
+Status and remaining work:
 
 - Complete the personal AI-use reflections in the blog using your actual experience.
-- Done (Nov 19): larger cutoff, log-adjusted truth, and s = 2. Over the tested range, cancellation was modest and roughly constant (variance ratio 0.53 to 0.81), and the noise grew more slowly than the signal in all settings. For s = 2, the expected cumulative wRV score favors the overfitting sequence until n ≈ 9,800 (ξ = 1), and its current risk is lower until about 32,800, which explains wRV's early choices there.
-- Derive or bound the paired B-term variance; this remains the central theoretical gap.
+- Done (Nov 19): larger cutoff, log-adjusted truth, and s = 2. Over the tested range, cancellation was modest and roughly constant (variance ratio 0.53 to 0.81), and the noise grew more slowly than the signal in all settings. For s = 2, the expected cumulative wRV score (ξ = 1) favors the overfitting sequence until n ≈ 9,840. The current-risk ranking switches 16 times before about 32,800 points, because the optimal model size ceil(m^(1/5)) grows only at exact fifth powers.
+- Done: exact finite-model Var(ΔB) and Cov(ΔB, ΔC), checked against 10,000 trajectories. Still open: turning them into asymptotic bounds.
 
 The independent paired-C check gives simulated/exact standard-deviation ratios of approximately 0.96–1.08 at the first and last checkpoints across the three weights. These are Monte Carlo comparisons, not a formal acceptance threshold.
 
