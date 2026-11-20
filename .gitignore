@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+robustness/validation_n3000.json
+robustness/*.log
+B_variance_check.json
+BC_covariance_check.json
