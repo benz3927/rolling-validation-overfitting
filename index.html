@@ -117,9 +117,8 @@ let the method succeed anyway. We study this boundary for trigonometric projecti
 In every tested setting (sample sizes up to 100,000, four truth and cutoff configurations), the probability that wRV picks the rate-optimal sequence rises toward one.
 The fluctuation of the score gap splits into three terms. Their cancellation is real but modest: it lowers the variance by about 19 to 47 percent, roughly constant in \(n\).
 It comes almost entirely from a covariance between two of the terms, which we derive exactly: noise that the overfitting model happens to fit when it scores a point
-later corrupts the same coefficients once that point is used for training. Over the tested range, each fluctuation term also grows more slowly than the signal, which suggests
-the obstruction lies in how the general bound treats one term rather than in its true size. With a smoother truth, apparent failures of wRV turn out to agree with its own expected score.
-These are finite-sample results checked by simulation, not an asymptotic proof.</p>
+later corrupts the same coefficients once that point is used for training. Each fluctuation term also grows more slowly than the signal. A direct calculation turns this into a proof (Theorem 1): for these estimators, wRV is consistent at the boundary without any cancellation. With a smoother truth, apparent failures of wRV turn out to agree with its own expected score.
+The proof is a draft that has not yet been checked independently, and it covers projection estimators only.</p>
 </section>
 
 <nav class="toc" id="contents"><p class="label">Contents</p>
@@ -140,7 +139,7 @@ These are finite-sample results checked by simulation, not an asymptotic proof.<
 <li class="sub"><a href="#s3-4"><span class="n">3.4</span>Robustness: could these results be artifacts of the setup?</a></li>
 <li class="sub"><a href="#s3-5"><span class="n">3.5</span>Exact variance of the paired B term</a></li>
 <li class="sub"><a href="#s3-6"><span class="n">3.6</span>Where the cancellation comes from</a></li>
-<li class=""><a href="#s4"><span class="n">4</span>What this suggests</a></li>
+<li class=""><a href="#s4"><span class="n">4</span>A proof for the projection estimator</a></li>
 <li class="sub"><a href="#s4-1"><span class="n">4.1</span>Limitations</a></li>
 <li class="sub"><a href="#s4-2"><span class="n">4.2</span>Next steps</a></li>
 <li class=""><a href="#s5"><span class="n">5</span>How AI was used, and how it was checked</a></li>
@@ -432,27 +431,51 @@ Its size changes slowly with \(n\), which is consistent with the roughly constan
 finite-model result checked by simulation. It does not by itself say what happens as \(n \to \infty\).
 <code>check_BC_covariance.py</code> computes it.</p>
 
-<h2 id="s4"><span class="secnum">4</span>What this suggests</h2>
-<p>The paper notes that the \(A\) and \(C\) terms can be concentrated without the stability condition; the boundary problem comes from \(B\)<sup class="cite"><a href="#ref-1">[1]</a></sup>. Lei's later stability-based theory of cross-validation<sup class="cite"><a href="#ref-2">[2]</a></sup> re-derives the same consistency result by bounding the terms separately, so it does not remove the boundary either.
-In this simulation, \(\Delta B\) grows at about the same rate as \(\Delta C\), slower than the signal.
-That points to a hypothesis different from the one in the paper:</p>
-<div class="callout"><span class="ctitle">Hypothesis</span>In this setting, the obstruction may come from how the general theorem turns a stability rate into a bound on \(B\),
-rather than from the true size of \(B\). If \(B\) really grows like \(n^{\xi + \alpha/2}\), a direct calculation for the projection estimator,
-using its explicit coefficient averages, might prove consistency without needing the cancellation at all.</div>
-<p>This would need care. The authors say their separate bounds are sharp, and they may be sharp in the worst case over the whole smoothness class
-or for general estimators, while still being loose for one truth. A finite simulation cannot settle an asymptotic question.</p>
+<h2 id="s4"><span class="secnum">4</span>A proof for the projection estimator</h2>
+<p>The paper notes that the \(A\) and \(C\) terms can be concentrated without the stability condition, so the boundary problem comes from \(B\)<sup class="cite"><a href="#ref-1">[1]</a></sup>. Lei's later stability-based theory of cross-validation<sup class="cite"><a href="#ref-2">[2]</a></sup> re-derives the same consistency result by bounding the terms separately, so it does not remove the boundary either.
+In the simulations, \(\Delta B\) grew at about the same rate as \(\Delta C\), more slowly than the signal. That suggested computing \(B\)'s size directly for the projection estimator, using its explicit coefficient averages, instead of bounding it through general stability. Doing so gives a proof.</p>
+
+<div class="callout"><span class="ctitle">Theorem 1 — wRV is consistent at the overfitting boundary (projection estimator)</span>
+Let the basis be orthonormal and uniformly bounded (the trigonometric basis is one example). Assume bounded outcomes \(|Y| \le M\), noise variance \(\mathrm{Var}(\varepsilon \mid X) \ge \sigma^2 > 0\), and Sobolev smoothness \(\sum_j j^{2s}\theta_j^2 \le R^2\) with \(s > 1/2\).
+Compare \(J_g(m) = \lceil m^{\beta} \rceil\) with \(J_h(m) = \lceil m^{\alpha} \rceil\), where \(\beta < \alpha < 1\) and \(2s\beta + \alpha > 1\). Then for every \(\xi \ge 0\),
+\[
+\Pr\bigl(\mathrm{RV}_n(h) \le \mathrm{RV}_n(g)\bigr) \le C\bigl(n^{-\alpha} + n^{-(1-\alpha)}\bigr) \to 0 .
+\]
+With \(\beta = 1/(2s+1)\), the condition \(2s\beta + \alpha > 1\) is exactly \(\alpha > 1/(2s+1)\). So wRV picks the rate-optimal sequence over every consistent overfitting sequence.</div>
+
+<p><strong>Proof idea.</strong> Write the score gap as signal \(+\ \Delta B + \mathcal M\), where \(\mathcal M = \Delta A - \Delta C\) is a martingale. Then bound each piece directly.</p>
+<ul>
+  <li><strong>Signal.</strong> Each coefficient's sampling variance satisfies \(V_j \ge \sigma^2\), by Cauchy&ndash;Schwarz. So the overfitter pays at least \(\sigma^2 m^{\alpha-1}/4\) extra risk per step, and the signal grows at least like \(n^{\xi+\alpha}\).</li>
+  <li><strong>Martingale part.</strong> Its variance is a sum of per-step second moments. Fourth-moment bounds for a bounded basis give \(\mathrm{Var}(\mathcal M_n) = O(n^{2\xi+\alpha} + n^{2\xi+3\alpha-1})\).</li>
+  <li><strong>The \(B\) term.</strong> At one training size \(m\), the risk gap \(D_m\) is a sum of about \(m^\alpha\) squared sample means. Expanding the fourth moment and using Bessel's inequality for the cross-coefficient terms gives \(\mathrm{Var}(D_m) \le C m^{\alpha-2}\). So \(D_m\) has standard deviation of order \(m^{\alpha/2-1}\), while its mean is of order \(m^{\alpha-1}\). The triangle inequality for standard deviations then gives \(\mathrm{sd}(\Delta B_n) \le \sum_i w_i\,\mathrm{sd}(D_{i-1}) \le C n^{\xi+\alpha/2}\). This allows the \(D_m\) at different times to be perfectly correlated.</li>
+  <li>Chebyshev's inequality then gives an error probability of order \(n^{2\xi+\alpha}/n^{2\xi+2\alpha} = n^{-\alpha}\), plus smaller terms.</li>
+</ul>
+<p>No cancellation is used. Each fluctuation term is of order \(n^{\xi+\alpha/2}\), smaller than the signal's \(n^{\xi+\alpha}\). The partial cancellation between \(B\) and \(C\) is real, but it only improves constants. The obstruction in the general theorem comes from how it turns a stability rate into a bound on \(B\), not from the true size of \(B\) for this estimator.
+The full proof is three pages: <a href="theory/consistency_proof.pdf">theory/consistency_proof.pdf</a>.</p>
+
+<table>
+  <tr><th>Exact finite-model check (\(\xi = 1\), \(\alpha = 0.4\))</th><th class="num">\(n = 3{,}000 \to 10^6\)</th><th>Theory</th></tr>
+  <tr><td>Local slope of \(\mathrm{sd}(\Delta B_n)\)</td><td class="num">1.29 &rarr; 1.24</td><td class="num">1.2</td></tr>
+  <tr><td>Local slope of \(\mathrm{sd}(\Delta C_n)\)</td><td class="num">1.23 &rarr; 1.21</td><td class="num">1.2</td></tr>
+  <tr><td>Local slope of the signal</td><td class="num">1.67 &rarr; 1.54</td><td class="num">1.4</td></tr>
+  <tr><td>Fluctuation &divide; signal</td><td class="num">2.7 &rarr; 0.33</td><td class="num">&rarr; 0</td></tr>
+</table>
+<p>Every exponent inequality used in the proof was also checked mechanically, across about 830,000 random parameter settings that satisfy the theorem's assumptions.</p>
+
+<div class="callout note"><span class="ctitle">Status</span>This is a draft proof, written with AI assistance and not yet checked independently by a person. It covers projection estimators on a bounded orthonormal basis with bounded outcomes, not every estimator covered by the general theorem. Before calling the problem resolved, each step should be checked by hand, and the literature should be searched more fully for an existing result of this kind. A simulation of the key variance formula for \(D_m\) at \(m = 2{,}000\) agreed with it to within 2% (28,000 repetitions).</div>
 
 <h3 id="s4-1"><span class="secnum">4.1</span>Limitations</h3>
 <ul>
   <li>Four truth and cutoff settings, one noise level. None is a worst case over the Sobolev ball, which is what the theory controls.</li>
   <li>The sample sizes cover two decades. Slopes are estimated from finite \(n\) and are still drifting.</li>
-  <li>Exact finite-model formulas now cover \(\mathrm{Var}(\Delta B)\), \(\mathrm{Var}(\Delta C)\) and \(\mathrm{Cov}(\Delta B, \Delta C)\). Their asymptotic growth rates are not proved, and the \(A\) term is only measured.</li>
+  <li>Theorem 1 is specific to projection estimators on a bounded orthonormal basis and assumes bounded outcomes and noise variance bounded below. It does not settle the question for general estimators.</li>
   <li>The truth has 400 basis coefficients and every candidate is capped at 400 terms. The cap starts affecting <code>over50</code> near 160,000 training points and <code>over40</code> near 3.2 million. Eventually <code>opt</code> also reaches 400, so the candidates coincide. This experiment cannot establish asymptotic selection consistency for uncapped sequences. Also, the uncapped coefficient law at the exact Sobolev boundary would require a logarithmic adjustment to have finite Sobolev norm; the log-adjusted robustness run uses such a truth.
 </ul>
 
 <h3 id="s4-2"><span class="secnum">4.2</span>Next steps</h3>
 <ul>
-  <li>Turn the exact finite-model formulas for \(\mathrm{Var}(\Delta B)\) and \(\mathrm{Cov}(\Delta B, \Delta C)\) into asymptotic bounds. If \(\mathrm{sd}(\Delta B_n)\) grows like \(n^{\xi+\alpha/2}\), as the simulated slope of 1.24 suggests, then together with the \(C\) calculation this would point toward consistency at the boundary for this estimator. The \(A\) term would still need a bound.</li>
+  <li>Check Theorem 1 line by line by hand, and search the literature (starting with Lei, 2025) for an existing result.</li>
+  <li>Extend the argument to other linear smoothers with explicit forms, such as ridge-type series estimators or local polynomials.</li>
   <li>Try a truth built to be hard for the optimal sequence (coefficients concentrated near its cutoff), and a heavier-tailed but still bounded noise.</li>
   <li>For \(s = 2\), run past \(n = 10^6\) to see whether selection approaches 1 once the overfitter loses its finite-sample advantage.</li>
 </ul>

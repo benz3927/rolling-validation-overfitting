@@ -1,0 +1,120 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype}
+\usepackage[hidelinks]{hyperref}
+\newtheorem{theorem}{Theorem}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\sd}{\operatorname{sd}}
+\newcommand{\RV}{\mathrm{RV}}
+\setlength{\parskip}{4pt}
+
+\title{Weighted rolling validation rejects overfitting projection estimators}
+\author{Benjamin Zhao\\{\small Rutgers University, Regression Analysis (16:960:563), Fall 2026}}
+\date{{\small Draft, November 2026. Written with AI assistance; not yet independently checked.}}
+
+\begin{document}
+\maketitle
+
+\noindent\textbf{Summary.} Zhang and Lei (2025, Section 6.1) show that weighted rolling validation (wRV) rejects an underfitting projection estimator, and leave open whether it rejects a consistent \emph{overfitting} one, where their stability condition holds only with equality. We show that it does. The proof bounds each fluctuation term directly from the explicit form of the estimator. No cancellation between terms is needed.
+
+\section{Setting and result}
+
+Observe i.i.d.\ pairs $(X_t,Y_t)$ with $Y=f_0(X)+\varepsilon$ and $\E[\varepsilon\mid X]=0$. Let $(\phi_j)_{j\ge0}$ be orthonormal in $L^2(P_X)$ with $\sup_j\|\phi_j\|_\infty\le K$, and let $\theta_j=\E[f_0(X)\phi_j(X)]$. (Example: the trigonometric basis with $X\sim\mathrm{Uniform}[0,1]$, $K=\sqrt2$.) Assume:
+\begin{itemize}\itemsep0pt
+\item[(A1)] $|Y|\le M$ almost surely;
+\item[(A2)] $\Var(\varepsilon\mid X)\ge\sigma^2>0$ almost surely;
+\item[(A3)] $f_0=\sum_j\theta_j\phi_j$ with $\sum_j j^{2s}\theta_j^2\le R^2$ for some $s>1/2$.
+\end{itemize}
+After $m$ observations, $\hat\theta_{j,m}=\frac1m\sum_{t\le m}Y_t\phi_j(X_t)$. Candidate $g$ uses $J_g(m)=\lceil m^\beta\rceil$ terms and candidate $h$ uses $J_h(m)=\lceil m^\alpha\rceil$ terms: $\hat f_m=\sum_{j<J(m)}\hat\theta_{j,m}\phi_j$. For $\xi\ge0$ and weights $w_i=i^\xi$,
+\[
+\RV_n=\sum_{i=n_0+1}^n w_i\bigl(\hat f_{i-1}(X_i)-Y_i\bigr)^2 ,
+\]
+and wRV picks the candidate with the smaller score.
+
+\begin{theorem}
+Assume (A1)--(A3), $0<\beta<\alpha<1$ and $2s\beta+\alpha>1$. Then for every $\xi\ge0$,
+\[
+\Pr\bigl(\RV_n(h)\le\RV_n(g)\bigr)\le C\bigl(n^{-\alpha}+n^{-(1-\alpha)}\bigr)\to0 .
+\]
+For the rate-optimal $\beta=1/(2s+1)$, the condition $2s\beta+\alpha>1$ is the same as $\alpha>\beta$. So wRV consistently picks the rate-optimal sequence over every overfitting sequence $\alpha\in(\tfrac1{2s+1},1)$.
+\end{theorem}
+
+\section{Proof}
+
+$C$ is a constant that depends only on $(K,M,\sigma,R,s,\alpha,\beta,\xi)$ and may change between lines. Throughout, $m=i-1$ is the training size at step $i$, and $\|\cdot\|$ is the $L^2(P_X)$ norm.
+
+\paragraph{Notation.} Let $Z_{j,t}=Y_t\phi_j(X_t)-\theta_j$ and $\delta_{j,m}=\hat\theta_{j,m}-\theta_j=\frac1m\sum_{t\le m}Z_{j,t}$. The $Z_{j,t}$ are i.i.d.\ in $t$, have mean zero, and $|Z_{j,t}|\le2KM$. Let $V_j=\E Z_j^2$, $\Sigma_{jl}=\E Z_jZ_l$, $Q_{jl}=\E Z_j^2Z_l^2$. Let $I_m=\{J_g(m),\dots,J_h(m)-1\}$ be the extra coefficients used by $h$; $|I_m|\le m^\alpha$, and $|I_m|\ge m^\alpha/2$ for large $m$. Three facts:
+\begin{itemize}\itemsep1pt
+\item[(F1)] $\sigma^2\le V_j\le M^2$. \emph{Proof:} $V_j=\E[Y^2\phi_j^2]-\theta_j^2$, and $\E[Y^2\mid X]\ge f_0^2+\sigma^2$, so $V_j\ge\sigma^2+\E[f_0^2\phi_j^2]-(\E f_0\phi_j)^2\ge\sigma^2$ by Cauchy--Schwarz.
+\item[(F2)] $\sum_l\Sigma_{jl}^2\le4M^4$ for every $j$. \emph{Proof:} with $q(x)=\E[Y^2\mid X=x]\le M^2$, $\Sigma_{jl}=\langle q\phi_j,\phi_l\rangle-\theta_j\theta_l$. Bessel's inequality gives $\sum_l\Sigma_{jl}^2\le2\|q\phi_j\|^2+2\theta_j^2\|f_0\|^2\le4M^4$.
+\item[(F3)] If $u=\sum_{j\in I}c_j\phi_j$ then $\|u\|_\infty^2\le K^2|I|\sum c_j^2$, so $\E u(X)^4\le K^2|I|\bigl(\sum_{j\in I}c_j^2\bigr)^2$. Also the bias $b_J=\sum_{j\ge J}\theta_j\phi_j$ satisfies $\|b_J\|^2\le R^2J^{-2s}$ and $\|b_J\|_\infty\le CJ^{1/2-s}$.
+\end{itemize}
+
+\paragraph{Step 0: decomposition.} Let $e_m=\hat f_m-f_0$ for each candidate and $H_m=\hat f^h_m-\hat f^g_m=\sum_{j\in I_m}\hat\theta_{j,m}\phi_j$. The step-$i$ score difference is
+\[
+\Delta_i=(e^h_m(X_i)-\varepsilon_i)^2-(e^g_m(X_i)-\varepsilon_i)^2=H_m(X_i)\bigl[(e^h_m+e^g_m)(X_i)-2\varepsilon_i\bigr].
+\]
+Let $\mathcal F_m$ be the first $m$ observations and $r_m=\|e_m\|^2$. Then $\E[\Delta_i\mid\mathcal F_m]=r^h_m-r^g_m=:D_m$, and
+\[
+\RV_n(h)-\RV_n(g)=\underbrace{\textstyle\sum_iw_i\E D_m}_{S_n}+\underbrace{\textstyle\sum_iw_i(D_m-\E D_m)}_{B_n}+\underbrace{\textstyle\sum_iw_i(\Delta_i-D_m)}_{\mathcal M_n}.
+\]
+$S_n$ is a number, and $B_n,\mathcal M_n$ have mean zero. If $S_n>0$, Chebyshev's inequality gives
+\begin{equation}\label{eq:cheb}
+\Pr\bigl(\RV_n(h)\le\RV_n(g)\bigr)\le\frac{2\Var(B_n)+2\Var(\mathcal M_n)}{S_n^2}.
+\end{equation}
+
+\paragraph{Step 1: the signal, $S_n\ge c\,n^{\xi+\alpha}$.} By orthonormality $r_m=\sum_{j<J(m)}\delta_{j,m}^2+\sum_{j\ge J(m)}\theta_j^2$, so
+\[
+D_m=\sum_{j\in I_m}(\delta_{j,m}^2-\theta_j^2),\qquad
+\E D_m=\sum_{j\in I_m}\Bigl(\frac{V_j}{m}-\theta_j^2\Bigr)\ge\frac{\sigma^2|I_m|}{m}-R^2m^{-2s\beta}\ge\frac{\sigma^2}{4}m^{\alpha-1}
+\]
+for $m\ge m_*$, using (F1) and $-2s\beta<\alpha-1$. The finitely many earlier steps change $S_n$ by at most a constant. Summing, $S_n\ge c\,n^{\xi+\alpha}$ for large $n$.
+
+\paragraph{Step 2: the term $B_n$, $\sd(B_n)\le C\,n^{\xi+\alpha/2}$.} $D_m-\E D_m=\sum_{j\in I_m}(\delta_{j,m}^2-\E\delta_{j,m}^2)$. For an i.i.d.\ sum, expanding the fourth moment gives
+\[
+\operatorname{Cov}(\delta_{j,m}^2,\delta_{l,m}^2)=\frac{Q_{jl}-V_jV_l}{m^3}+\frac{2(m-1)\Sigma_{jl}^2}{m^3}.
+\]
+The first part is at most $C/m^3$ in absolute value. Sum over $j,l\in I_m$ and use (F2) for the second part:
+\[
+\Var(D_m)\le\frac{C|I_m|^2}{m^3}+\frac{8M^4|I_m|}{m^2}\le C\bigl(m^{2\alpha-3}+m^{\alpha-2}\bigr)\le Cm^{\alpha-2}.
+\]
+So $\sd(D_m)\le Cm^{\alpha/2-1}$. By the triangle inequality for standard deviations,
+\[
+\sd(B_n)\le\sum_iw_i\,\sd(D_m)\le C\sum_{i\le n}i^{\xi+\alpha/2-1}\le C\,n^{\xi+\alpha/2}.
+\]
+This step allows the $D_m$ at different times to be perfectly correlated, and the bound is still small enough.
+
+\paragraph{Step 3: the martingale $\mathcal M_n$, $\Var(\mathcal M_n)\le C\bigl(n^{2\xi+\alpha}+n^{2\xi+3\alpha-1}+\log n\bigr)$.} The summands are martingale differences, so $\Var(\mathcal M_n)\le\sum_iw_i^2\E\Delta_i^2$. With $|\varepsilon|\le2M$ and Cauchy--Schwarz,
+\[
+\E\Delta_i^2\le2\bigl(\E H_m(X)^4\bigr)^{1/2}\bigl(\E(e^h_m+e^g_m)(X)^4\bigr)^{1/2}+32M^2\,\E\|H_m\|^2 .
+\]
+\begin{itemize}\itemsep1pt
+\item $\E\|H_m\|^2=\sum_{j\in I_m}(\theta_j^2+V_j/m)\le R^2m^{-2s\beta}+M^2m^{\alpha-1}\le Cm^{\alpha-1}$.
+\item $\E\delta_{j,m}^4\le C/m^2$, so $\E(\sum_{j\in I}\delta_{j,m}^2)^2\le C|I|^2/m^2$ by Minkowski. With (F3),
+$\E H_m(X)^4\le C|I_m|\bigl(m^{-4s\beta}+|I_m|^2/m^2\bigr)\le Cm^{3\alpha-2}$, because $-4s\beta<2\alpha-2$.
+\item $e_m=\sum_{j<J}\delta_{j,m}\phi_j-b_J$. By (F3) again, $\E e_m(X)^4\le C(J^3/m^2+J^{1-4s})$. For both candidates this is at most $Cm^{3\alpha-2}$, because $\beta(1-4s)<3\alpha-2$ and $\alpha(1-4s)<3\alpha-2$.
+\end{itemize}
+Hence $\E\Delta_i^2\le C(m^{3\alpha-2}+m^{\alpha-1})$. Multiply by $w_i^2=i^{2\xi}$ and sum.
+
+\paragraph{Step 4: conclusion.} Put Steps 1--3 into \eqref{eq:cheb}:
+\[
+\Pr\bigl(\RV_n(h)\le\RV_n(g)\bigr)\le C\,\frac{n^{2\xi+\alpha}+n^{2\xi+3\alpha-1}+\log n}{n^{2\xi+2\alpha}}\le C\bigl(n^{-\alpha}+n^{-(1-\alpha)}\bigr).\qquad\qed
+\]
+
+\section{Remarks}
+
+\textbf{Why no cancellation is needed.} The signal grows like $n^{\xi+\alpha}$. The fluctuations $B_n$ and $\mathcal M_n$ grow like $n^{\xi+\alpha/2}$ (and $n^{\xi+(3\alpha-1)/2}$ when $\alpha>1/2$). The reason is Step 2: the conditional risk of a projection estimator is a sum of squared sample means, so it concentrates at scale $m^{\alpha/2-1}$, a factor $m^{-\alpha/2}$ below its mean. A general perturb-one stability bound does not see this. The negative correlation between the $B$ and $C$ terms seen in simulation (about $-0.3$) is real but only improves constants.
+
+\textbf{Role of the assumptions.} (A2) makes the overfitting sequence strictly worse; some such separation is needed for any selector. The condition $2s\beta+\alpha>1$ says the bias of $g$ is smaller than the extra variance of $h$. Boundedness (A1) and the bounded basis are the assumptions of Zhang and Lei's Section 6.1.
+
+\textbf{Numerical check.} For $s=1$, $\beta=1/3$, $\alpha=0.4$, $\xi=1$, exact finite-model formulas give log-log slopes of $\sd(B_n)$ falling from 1.29 to 1.24 between $n=3\times10^3$ and $10^6$ (theory: at most 1.2), and the fluctuation-to-signal ratio falling from 2.7 to 0.33.
+
+\textbf{Status.} This draft has not been checked by another person, and the literature (in particular Lei, 2025) has not been searched for an existing result of this kind. It covers projection estimators only, not every estimator covered by Zhang and Lei's general theorem.
+
+\medskip\noindent\textbf{References.}
+T.~Zhang and J.~Lei (2025). Online estimation with rolling validation: adaptive nonparametric estimation with streaming data. \emph{Annals of Statistics} 53(6), 2702--2727.
+J.~Lei (2025). A modern theory of cross-validation through the lens of stability. arXiv:2505.23592.
+\end{document}

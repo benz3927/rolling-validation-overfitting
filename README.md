@@ -38,7 +38,7 @@ python3 robustness/summarize.py
 
 ## Interpretation and remaining work
 
-These simulations support improved pairwise selection over the tested sample sizes, not a proof of asymptotic consistency. Every candidate is capped at 400 and eventually the sequences coincide. The observed cancellation is modest over this range; its asymptotic order remains open.
+These simulations support improved pairwise selection over the tested sample sizes, not a proof of asymptotic consistency. A separate draft proof for uncapped projection estimators on a bounded orthonormal basis is in `theory/consistency_proof.pdf` (3 pages). It was written with AI assistance and has not yet been checked independently. Every candidate is capped at 400 and eventually the sequences coincide. The observed cancellation is modest over this range; its asymptotic order remains open.
 
 Status and remaining work:
 
