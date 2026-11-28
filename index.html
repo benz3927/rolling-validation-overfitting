@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>When Can Validation Catch Mild Overfitting?</title>
-<meta name="description" content="Can weighted rolling validation reject a mildly overfitting model at the boundary left open by existing theory? A simulation and exact finite-sample study.">
+<meta name="description" content="Can weighted rolling validation reject a mildly overfitting model at the boundary left open by existing theory? Simulations, exact covariance calculations, and a draft consistency proof for projection estimators.">
 <meta property="og:title" content="When Can Validation Catch Mild Overfitting?">
 <meta property="og:type" content="article">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <script>
   window.MathJax = {
-    tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]], tags: "all" },
+    tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]], tags: "none" },
     chtml: { scale: 1.0 }
   };
 </script>
@@ -95,6 +95,14 @@
   mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
   footer { max-width: 900px; margin: 0 auto; padding: 28px; border-top: 1px solid var(--rule); color: var(--muted); font: .85rem/1.6 var(--sans); }
   @media (max-width: 700px) { nav.toc ol { columns: 1; } body { font-size: 17px; } }
+
+  details { border: 1px solid var(--rule); border-radius: 8px; padding: 16px 20px; margin: 24px 0; }
+  summary { cursor: pointer; color: var(--ink); font: 600 1rem/1.5 var(--sans); }
+  details[open] summary { margin-bottom: 18px; }
+  .table-wrap { overflow-x: auto; margin: 18px 0; }
+  .table-wrap table { margin: 0; min-width: 480px; }
+  .status { color: var(--muted); font: .9rem/1.5 var(--sans); margin: 0 0 24px; }
+  @media print { body { background: white; color: black; } details { display: block; } }
 </style>
 </head>
 <body>
@@ -106,252 +114,197 @@
   <nav class="pills"><a href="#contents">Contents ↓</a><a href="#references">References ↓</a><a href="https://github.com/benz3927/rolling-validation-overfitting">Code &amp; data ↗</a></nav>
 </header>
 <main>
-
-<p class="todo">Draft. Yellow boxes are notes for Ben and should be removed before submission.</p>
-
+<p class="status">AI-assisted research draft · November 2026 · Expert review and novelty assessment pending</p>
 <section class="abstract">
 <p class="label">Abstract</p>
-<p>Zhang and Lei (2025)<sup class="cite"><a href="#ref-1">[1]</a></sup> prove that weighted rolling validation (wRV), an online model-selection method, reliably rejects models that underfit.
-Their argument stops exactly at the boundary for models that overfit mildly, where they conjecture that "intricate cancellations" between error terms
-let the method succeed anyway. We study this boundary for trigonometric projection estimators, using simulation and exact finite-sample calculation.
-In every tested setting (sample sizes up to 100,000, four truth and cutoff configurations), the probability that wRV picks the rate-optimal sequence rises toward one.
-The fluctuation of the score gap splits into three terms. Their cancellation is real but modest: it lowers the variance by about 19 to 47 percent, roughly constant in \(n\).
-It comes almost entirely from a covariance between two of the terms, which we derive exactly: noise that the overfitting model happens to fit when it scores a point
-later corrupts the same coefficients once that point is used for training. Each fluctuation term also grows more slowly than the signal. A direct calculation turns this into a proof (Theorem 1): for these estimators, wRV is consistent at the boundary without any cancellation. With a smoother truth, apparent failures of wRV turn out to agree with its own expected score.
-The proof is a draft that has not yet been checked independently, and it covers projection estimators only.</p>
+<p>Can rolling validation distinguish a good regression model from one that uses slightly too many terms?
+Zhang and Lei’s general stability theorem leaves a natural projection-estimator case unresolved.
+We investigate it through simulations, exact variance calculations, and a direct proof.
+Selection improves over the tested sample sizes, and error terms partly cancel.
+Our draft proof establishes consistency for bounded projection estimators under a positive noise-variance condition, without using cancellation.
+The result is specific to this setting; its novelty remains under review.</p>
 </section>
 
-<nav class="toc" id="contents"><p class="label">Contents</p>
-<ol>
-<li class=""><a href="#s1"><span class="n">1</span>The problem</a></li>
-<li class="sub"><a href="#s1-1"><span class="n">1.1</span>Online model selection</a></li>
-<li class="sub"><a href="#s1-2"><span class="n">1.2</span>The setting</a></li>
-<li class="sub"><a href="#s1-3"><span class="n">1.3</span>Where the theory stops</a></li>
-<li class=""><a href="#s2"><span class="n">2</span>Approach</a></li>
-<li class="sub"><a href="#s2-1"><span class="n">2.1</span>Splitting the score into signal and noise</a></li>
-<li class="sub"><a href="#s2-2"><span class="n">2.2</span>Simulation design</a></li>
-<li class="sub"><a href="#s2-3"><span class="n">2.3</span>Exact centering</a></li>
-<li class="sub"><a href="#s2-4"><span class="n">2.4</span>Checks</a></li>
-<li class=""><a href="#s3"><span class="n">3</span>Results</a></li>
-<li class="sub"><a href="#s3-1"><span class="n">3.1</span>Finding 1: selection improves over the tested sample sizes</a></li>
-<li class="sub"><a href="#s3-2"><span class="n">3.2</span>Finding 2: modest cancellation over the tested range</a></li>
-<li class="sub"><a href="#s3-3"><span class="n">3.3</span>Finding 3: the signal already outgrows each term on its own</a></li>
-<li class="sub"><a href="#s3-4"><span class="n">3.4</span>Robustness: could these results be artifacts of the setup?</a></li>
-<li class="sub"><a href="#s3-5"><span class="n">3.5</span>Exact variance of the paired B term</a></li>
-<li class="sub"><a href="#s3-6"><span class="n">3.6</span>Where the cancellation comes from</a></li>
-<li class=""><a href="#s4"><span class="n">4</span>A proof for the projection estimator</a></li>
-<li class="sub"><a href="#s4-1"><span class="n">4.1</span>Limitations</a></li>
-<li class="sub"><a href="#s4-2"><span class="n">4.2</span>Next steps</a></li>
-<li class=""><a href="#s5"><span class="n">5</span>How AI was used, and how it was checked</a></li>
-<li class=""><a href="#s6"><span class="n">6</span>Reproduce</a></li>
-<li class=""><a href="#references"><span class="n"></span>References</a></li>
-</ol>
-</nav>
+<nav class="toc" id="contents" aria-label="Contents"><p class="label">Contents</p><ol>
+<li><a href="#s1"><span class="n">1</span>The question</a></li>
+<li><a href="#s2"><span class="n">2</span>Study design</a></li>
+<li><a href="#s3"><span class="n">3</span>What the experiments show</a></li>
+<li><a href="#s4"><span class="n">4</span>A direct consistency proof</a></li>
+<li><a href="#s5"><span class="n">5</span>AI use and verification</a></li>
+<li><a href="#s6"><span class="n">6</span>Limits and next steps</a></li>
+<li><a href="#reproduce"><span class="n">7</span>Reproduce the results</a></li>
+<li><a href="#references">References</a></li>
+</ol></nav>
 
-<p>Severe overfitting is usually easy for validation to catch. The harder case is mild overfitting:
-a model that uses a few too many terms, whose error still goes to zero, just a little more slowly than the best model.
-This project asks whether one specific online validation method, weighted rolling validation, can reliably tell the two apart,
-in a setting where the existing theory stops just short of an answer.</p>
-
-<h2 id="s1"><span class="secnum">1</span>The problem</h2>
-
-<h3 id="s1-1"><span class="secnum">1.1</span>Online model selection</h3>
-<p>Suppose data arrive one point at a time, and we keep refitting a regression as they come in. We have several candidate
-modeling strategies and want to pick the best one without setting aside a permanent holdout set.
-Zhang and Lei (2025)<sup class="cite"><a href="#ref-1">[1]</a></sup> propose <strong>weighted rolling validation (wRV)</strong>: at each step, fit every candidate on the data so far,
-predict the next point before seeing it, and record the squared error. Later errors get more weight, because early fits are trained
-on very little data. Classical results for cross-validation compare models on held-out splits<sup class="cite"><a href="#ref-3">[3]</a><a href="#ref-4">[4]</a></sup>; wRV instead scores each fit on the very next observation, so no data are permanently set aside.</p>
-
-<p>For a candidate whose estimate after \(i-1\) points is \(\hat f_{i-1}\), the score after \(n\) points is</p>
+<h2 id="s1"><span class="secnum">1</span>The question</h2>
+<p>Suppose observations arrive one at a time. At each step, several regression models predict the next observation using only the past.
+Weighted rolling validation (wRV) selects the model with the smallest weighted sum of prediction errors:</p>
 \[
-\mathrm{RV}_n \;=\; \sum_{i=1}^{n} i^{\xi}\,\bigl(\hat f_{i-1}(X_i) - Y_i\bigr)^2 ,
+\mathrm{RV}_n(f)=\sum_{i=n_0+1}^{n}i^\xi\bigl(\hat f_{i-1}(X_i)-Y_i\bigr)^2,\qquad \xi\ge0.
 \]
-<p>and wRV picks the candidate with the smallest score. The weight exponent \(\xi \ge 0\) controls how much later errors count;
-the paper recommends \(\xi = 1\).</p>
+<p>The fit \(\hat f_{i-1}\) uses observations 1 through \(i-1\); point \(i\) is held out until its prediction is scored.
+Larger \(\xi\) gives later predictions more weight. Our main experiment uses \(\xi=1\).</p>
 
-<h3 id="s1-2"><span class="secnum">1.2</span>The setting</h3>
-<p>We observe \(X \sim \mathrm{Uniform}[0,1]\) and \(Y = f_0(X) + \varepsilon\) with bounded noise.
-We expand \(f_0\) in the trigonometric basis \(\phi_0 = 1\), \(\phi_{2k-1}(x) = \sqrt2\cos(2\pi k x)\), \(\phi_{2k}(x) = \sqrt2\sin(2\pi k x)\),
-which is orthonormal under the uniform distribution. A projection estimator<sup class="cite"><a href="#ref-5">[5]</a></sup> with \(J\) terms trained on \(m\) points is</p>
+<h3>Overfitting can be mild and consistent</h3>
+<p>We study orthogonal series regression: approximate \(f_0\) by its first \(J(m)\) basis functions after \(m\) training observations.
+For smoothness \(s\), the usual squared-bias and variance orders are \(J^{-2s}\) and \(J/m\).
+Balancing them gives \(J_g(m)\asymp m^{1/(2s+1)}\).
+A sequence \(J_h(m)\asymp m^\alpha\), with \(1/(2s+1)&lt;\alpha&lt;1\), uses too many terms: its risk still vanishes, but more slowly.</p>
+<p>Zhang and Lei’s theorem requires a strict stability inequality, \(b_h&gt;\tfrac12+\tfrac{a_h}{2}\).
+For this overfitting sequence, their rates give</p>
 \[
-\hat f(x) = \sum_{j \lt J} \hat\theta_j \phi_j(x), \qquad \hat\theta_j = \frac1m \sum_{t=1}^{m} Y_t\,\phi_j(X_t).
+b_h=1-\alpha/2=\tfrac12+\tfrac{1-\alpha}{2},\qquad a_h=1-\alpha.
 \]
-<p>Because the basis is orthonormal, these coefficients are just sample averages, so every fit along the way comes almost for free from running sums.</p>
+<p>The condition holds only at equality, so their theorem is inconclusive. The authors suggest that cancellation between error terms may explain why wRV nevertheless works in simulations.<sup class="cite"><a href="#ref-1">[1]</a></sup>
+Lei’s later stability treatment retains this obstruction.<sup class="cite"><a href="#ref-2">[2]</a></sup></p>
+<div class="callout"><span class="ctitle">Research question</span><p>Does the original wRV selector consistently reject this overfitting projection estimator? If it does, is cancellation necessary?</p></div>
 
-<p>The candidates are not single models but <em>sequences</em> of model sizes, \(J(m) = m^{a}\). For a truth of smoothness \(s\),
-the rate-optimal choice is \(a = 1/(2s+1)\), which balances squared bias \(\approx J^{-2s}\) against variance \(\approx J/m\).
-Any \(a > 1/(2s+1)\) overfits: its error is dominated by variance, \(\approx m^{a-1}\), which still goes to zero, just more slowly.</p>
-
-<h3 id="s1-3"><span class="secnum">1.3</span>Where the theory stops</h3>
-<p>Zhang and Lei's selection theorem<sup class="cite"><a href="#ref-1">[1]</a></sup> (their Theorem 4.1, applied in Section 6.1) needs a <em>strict</em> stability inequality for the inferior candidate:
-\(b_h > \tfrac12 + \tfrac{a_h}{2}\), where \(b_h\) is its stability rate and \(a_h\) its risk rate. For the projection estimator with
-\(J = m^{\alpha}\), they compute \(b_h = 1 - \alpha/2\) and \(a_h = (1-\alpha) \wedge 2s\alpha\).
-When \(\alpha < 1/(2s+1)\) (underfitting), the inequality holds and wRV provably picks the optimal sequence.
-When \(\alpha > 1/(2s+1)\) (overfitting), \(a_h = 1 - \alpha\), and the two sides become exactly equal:
+<h2 id="s2"><span class="secnum">2</span>Study design</h2>
+<p>Generate independent observations \(X\sim\mathrm{Uniform}[0,1]\), \(Y=f_0(X)+\varepsilon\), with independent noise \(\varepsilon=\pm1\) of equal probability.
+Use the orthonormal trigonometric basis</p>
 \[
-b_h = 1 - \tfrac{\alpha}{2} = \tfrac12 + \tfrac{1-\alpha}{2}.
+\phi_0=1,\qquad \phi_{2k-1}(x)=\sqrt2\cos(2\pi kx),\qquad \phi_{2k}(x)=\sqrt2\sin(2\pi kx).
 \]
-<p>So the proof lands on the boundary for <em>every</em> overfitting exponent, even though the authors' simulations show wRV still picks the right model.
-They suggest the reason may be "intricate cancellations" between the terms of their decomposition, equation (15).</p>
-
-<div class="callout"><span class="ctitle">Research question</span> Does wRV consistently pick the rate-optimal sequence over a mildly overfitting one,
-at the boundary where the existing proof does not apply? And if so, is the reason cancellation between error terms, as the authors conjecture?</div>
-
-<h2 id="s2"><span class="secnum">2</span>Approach</h2>
-
-<h3 id="s2-1"><span class="secnum">2.1</span>Splitting the score into signal and noise</h3>
-<p>Write \(D_i = \hat f_{i-1} - f_0\) for the estimation error, \(w_i = i^{\xi}\) for the weight,
-\(r_i = \mathbb E[D_i(X)^2 \mid \text{first } i-1 \text{ points}]\) for the conditional risk, and \(m_i = \mathbb E[r_i]\) for the expected risk.
-Following the paper's equation (15), the score splits exactly into five parts:</p>
+<p>Each fit uses sample-average coefficients, rather than an empirical least-squares fit:</p>
 \[
-\mathrm{RV}_n = \underbrace{\sum w_i \varepsilon_i^2}_{\text{pure noise}}
- + \underbrace{\sum w_i m_i}_{\text{signal}}
- + \underbrace{\sum w_i (D_i^2 - r_i)}_{A}
- + \underbrace{\sum w_i (r_i - m_i)}_{B}
- - \underbrace{2\sum w_i \varepsilon_i D_i}_{C}.
+\hat\theta_{j,m}=\frac1m\sum_{t=1}^mY_t\phi_j(X_t),\qquad
+\hat f_m(x)=\sum_{j&lt;J(m)}\hat\theta_{j,m}\phi_j(x).
 \]
-<p>The pure-noise part is identical for every candidate, so it cancels when we compare two of them.
-The <strong>signal</strong> is the expected score gap, which favors the better model.
-\(A\) and \(C\) are martingale sums, and \(B\) is the hard, non-martingale part that the paper controls through estimator stability.
-wRV picks correctly when the signal gap beats the combined fluctuation \(\Delta A + \Delta B - \Delta C\).</p>
+<p>For the main run, \(s=1\), \(\theta_0=0\), and the retained sine and cosine coefficients at frequency \(k\) equal \(0.65k^{-3/2}\).
+The truth has 400 coefficients, and \(J(m)=\min\{\lceil m^a\rceil,400\}\).
+We compare <code>opt</code> (\(a=1/3\)) with <code>over40</code> (0.40), <code>over50</code> (0.50), and <code>under20</code> (0.20).
+Scoring begins after 100 training points. The run has 400 independent trajectories, each to \(n=100{,}000\).
+Candidates share each trajectory, allowing paired comparisons. We also compute weights \(\xi=0,2\).</p>
 
-<h3 id="s2-2"><span class="secnum">2.2</span>Simulation design</h3>
-<ul>
-  <li>Smoothness \(s = 1\), so the optimal exponent is \(a = 1/3\).</li>
-  <li>Truth: \(f_0 = \sum_{j \lt 400} \theta_j \phi_j\) with both coefficients at frequency \(k\) equal to \(0.65\,k^{-3/2}\).
-      This is a finite calibration device for the simulation, not an exact worst case from the theory.</li>
-  <li>Noise: \(\varepsilon = \pm 1\) with equal probability (bounded, as the theory assumes).</li>
-  <li>Candidates: <code>opt</code> (\(a = 1/3\)), <code>over40</code> (\(a = 0.40\)), <code>over50</code> (\(a = 0.50\)),
-      and <code>under20</code> (\(a = 0.20\)) as an underfitting control that the theory already covers.</li>
-  <li>Weights \(\xi \in \{0, 1, 2\}\), all computed on the same data. Scoring starts after 100 training points.</li>
-  <li>400 independent trajectories, each to \(n = 100{,}000\). Candidates are compared on the same trajectory (paired).</li>
-</ul>
-
-<h3 id="s2-3"><span class="secnum">2.3</span>Exact centering</h3>
-<p>Because \(f_0\) lies inside the span of the basis, the conditional and expected risks have closed forms by Parseval's identity:</p>
+<h3>Separate signal from fluctuation</h3>
+<p>For one candidate, let \(D_i(x)=\hat f_{i-1}(x)-f_0(x)\),
+\(r_i=\mathbb E_X[D_i(X)^2\mid\mathcal F_{i-1}]\), and \(\mu_i=\mathbb E[r_i]\).
+Here \(\mathcal F_{i-1}\) contains the past observations and \(X\) is a fresh point.
+The score decomposes exactly as</p>
 \[
-r_i = \sum_{j \lt J}(\hat\theta_j - \theta_j)^2 + \sum_{j\ge J}\theta_j^2, \qquad
-m_i = \frac{1}{i-1}\sum_{j \lt J}\mathrm{Var}\bigl(Y\phi_j(X)\bigr) + \sum_{j\ge J}\theta_j^2 .
+\begin{aligned}
+\mathrm{RV}_n={}&\sum_i i^\xi\varepsilon_i^2+\sum_i i^\xi\mu_i+A+B-C,\\
+A={}&\sum_i i^\xi\bigl(D_i(X_i)^2-r_i\bigr),\\
+B={}&\sum_i i^\xi(r_i-\mu_i),\qquad
+C=2\sum_i i^\xi\varepsilon_iD_i(X_i).
+\end{aligned}
 \]
-<p>So every term of the decomposition is computed exactly, with no Monte Carlo calibration bank. That removes one source of error
-that could otherwise be mistaken for cancellation.</p>
-
-<h3 id="s2-4"><span class="secnum">2.4</span>Checks</h3>
-<table>
-  <tr><th>Check</th><th>What it rules out</th><th>Result</th></tr>
-  <tr><td>Basis orthonormality on a quadrature grid</td><td>A wrong basis or scaling</td><td class="num">max error 7e-15</td></tr>
-  <tr><td>Refit from scratch at random times</td><td>Leakage: using point \(i\) to predict point \(i\)</td><td class="num">max difference 3e-15</td></tr>
-  <tr><td>noise + signal + A + B − C vs. the directly computed score</td><td>Errors in the decomposition</td><td class="num">max relative error 5e-15</td></tr>
-  <tr><td>Monte Carlo mean of \(r_i\) vs. exact \(m_i\)</td><td>Wrong centering</td><td class="num">ratio 0.97 to 1.02</td></tr>
-</table>
-
-<h2 id="s3"><span class="secnum">3</span>Results</h2>
-
-<h3 id="s3-1"><span class="secnum">3.1</span>Finding 1: selection improves over the tested sample sizes</h3>
-<figure>
-  <img src="figures/selection_probability.png" alt="Selection probability against sample size">
-  <figcaption>Share of 400 trajectories in which wRV picks <code>opt</code>, with 95% Wilson intervals, \(\xi = 1\).</figcaption>
-</figure>
-<p>Against the mild overfitter <code>over40</code>, wRV is close to a coin flip at \(n = 1{,}000\) (0.60, 95% CI 0.55 to 0.65)
-and climbs to 0.95 (0.93 to 0.97) at \(n = 100{,}000\). Against <code>over50</code> and the underfitting control, it is essentially always right.
-This matches the intuition: the milder the overfitting, the smaller the true error gap, and the more data you need to see it.</p>
-
-<table>
-  <tr><th>opt vs over40, \(n = 100{,}000\)</th><th>\(\xi = 0\)</th><th>\(\xi = 1\)</th><th>\(\xi = 2\)</th></tr>
-  <tr><td>P(correct)</td><td class="num">0.980</td><td class="num">0.953</td><td class="num">0.915</td></tr>
-</table>
-<p>Heavier weighting on late errors makes selection slightly <em>less</em> accurate here. That fits the paper's own trade-off:
-a larger \(\xi\) reacts faster but makes the score concentrate less tightly.</p>
-
-<h3 id="s3-2"><span class="secnum">3.2</span>Finding 2: modest cancellation over the tested range</h3>
-<figure>
-  <img src="figures/cancellation.png" alt="Cancellation ratio and correlations between terms">
-  <figcaption>Left: variance of the combined fluctuation divided by the sum of the separate variances. Right: correlations between the three terms (opt vs over40, \(\xi = 1\)).</figcaption>
-</figure>
-<p>The variance of \(\Delta A + \Delta B - \Delta C\) is about 65 to 80 percent of what it would be if the terms were independent
-(about 60 to 65 percent for <code>over50</code>). Almost all of this comes from one pair: \(\Delta B\) and \(-\Delta C\) have a correlation of
-about \(-0.3\) at every sample size. \(\Delta A\) is essentially uncorrelated with both.</p>
-<p>These results support cancellation in this experiment. Across the tested sample sizes, the variance ratio shows no clear trend toward zero. This is compatible with a constant-factor reduction over this range; it does not establish the asymptotic order of the cancellation.</p>
-
-<h3 id="s3-3"><span class="secnum">3.3</span>Finding 3: the signal already outgrows each term on its own</h3>
-<figure>
-  <img src="figures/signal_vs_fluctuation.png" alt="Signal gap and fluctuation sizes on log-log axes">
-  <figcaption>Mean signal gap and the standard deviation of each fluctuation term, opt vs over40, \(\xi = 1\). Slopes are fitted over the last five checkpoints.</figcaption>
-</figure>
-<p>This was the surprise. On a log-log scale, the signal gap grows with slope about 1.60, while each fluctuation term grows more slowly
-(\(\Delta A\): 1.00, \(\Delta B\): 1.24, \(\Delta C\): 1.27; combined: 1.28). The signal-to-noise ratio rises from 0.25 at \(n = 1{,}000\) to 1.58 at \(n = 100{,}000\).
-If these rates hold, wRV would win even <em>without</em> any cancellation.</p>
-
-<div class="callout"><span class="ctitle">Lemma 1 — Exact variance of the paired \(C\) term</span>
-<p>A martingale calculation gives an exact check for the plotted difference term. Let
-\(H_i=\hat f_{h,i-1}-\hat f_{g,i-1}\). With independent noise of variance \(\sigma^2\),</p>
+<p>For a comparison, write \(\Delta=\text{alternative}-\text{opt}\).
+The pure-noise term cancels, leaving an expected score gap (the signal) plus \(\Delta A+\Delta B-\Delta C\).
+The terms \(A\) and \(C\) are martingale sums; \(B\) carries the dependence between successive fits.</p>
+<p>Orthonormality gives exact conditional and expected risks:</p>
 \[
-\operatorname{Var}(\Delta C_n)=4\sigma^2\sum_{i=101}^{n}i^{2\xi}\,\mathbb E\|H_i\|_{L^2}^2.
+r_i=\sum_{j&lt;J}(\hat\theta_{j,i-1}-\theta_j)^2+\sum_{j\ge J}\theta_j^2,
+\qquad
+\mu_i=\frac{\sum_{j&lt;J}V_j}{i-1}+\sum_{j\ge J}\theta_j^2,
 \]
-<p>The candidates use the same coefficient averages and nested bases. Thus, when \(J_h\ge J_g\),</p>
+<p>where \(V_j=\operatorname{Var}(Y\phi_j(X))\). This avoids a separate Monte Carlo calibration bank.</p>
+<details><summary>Implementation checks</summary>
+<p>In the main run, the basis orthonormality error was about \(7\times10^{-15}\), and a from-scratch refit agreed with running-sum predictions to about \(3\times10^{-15}\).
+Recombining the score terms gave relative error below \(5\times10^{-15}\).
+The Monte Carlo mean conditional risk divided by its exact expectation ranged from 0.97 to 1.02.
+These checks test scaling, leakage, decomposition, and centering; they do not establish the asymptotic theorem.</p>
+</details>
+
+<h2 id="s3"><span class="secnum">3</span>What the experiments show</h2>
+<h3>Selection improves, slowly for mild overfitting</h3>
+<figure><img src="figures/selection_probability.png" alt="Pairwise probability of choosing opt against sample size, with confidence intervals" width="1152" height="684">
+<figcaption>Pairwise selection frequencies over 400 trajectories, with 95% Wilson intervals, for \(\xi=1\). These are comparisons against one alternative at a time.</figcaption></figure>
+<p>Against <code>over40</code>, selection of <code>opt</code> rises from 0.60 at \(n=1{,}000\) (95% interval 0.55–0.65)
+to 0.953 at \(n=100{,}000\) (0.93–0.97). Selection against <code>over50</code> and <code>under20</code> is nearly perfect over this range.
+At \(n=100{,}000\), the <code>over40</code> comparison gives 0.980, 0.953, and 0.915 for \(\xi=0,1,2\): heavier weighting does not help in this design.</p>
+
+<h3>Cancellation is measurable, but modest</h3>
+<figure><img src="figures/cancellation.png" alt="Variance cancellation ratio and correlations of paired fluctuation terms" loading="lazy">
+<figcaption>The variance ratio compares \(\operatorname{Var}(\Delta A+\Delta B-\Delta C)\) with \(\operatorname{Var}(\Delta A)+\operatorname{Var}(\Delta B)+\operatorname{Var}(\Delta C)\).</figcaption></figure>
+<p>In the main <code>over40</code> comparison, the combined variance is about 65–80% of the sum of separate variances.
+The reduction comes mainly from a negative correlation between \(\Delta B\) and \(-\Delta C\).
+The ratio is roughly stable over the tested range; finite experiments do not establish that it stays constant asymptotically.</p>
+<p>The exact covariance calculation explains the connection. Noise that happens to align with the larger model’s extra terms lowers its prediction score at that point.
+Once the point enters training, the same noise perturbs those coefficients and contributes to later conditional-risk variation.
+This shared-observation term accounts for at least 97% of the calculated covariance in the checked comparisons.</p>
+<p>A separate 10,000-trajectory run to \(n=3{,}000\) checks the formulas: simulated B standard deviations differ from exact values by at most 2.2%,
+and B–C correlations by less than 0.03. The formulas are for the finite simulation model, not a universal covariance identity for every noise distribution.</p>
+
+<h3>The signal grows faster in the main comparison</h3>
+<figure><img src="figures/signal_vs_fluctuation.png" alt="Signal gap and fluctuation standard deviations on logarithmic axes" loading="lazy">
+<figcaption>For <code>opt</code> versus <code>over40</code>, \(\xi=1\), fitted slopes over the last five checkpoints are 1.60 for the signal and 1.28 for the combined fluctuation.</figcaption></figure>
+<p>The component standard-deviation slopes are approximately 1.00 (\(\Delta A\)), 1.24 (\(\Delta B\)), and 1.27 (\(\Delta C\)).
+This suggested a direct proof: perhaps each fluctuation can be controlled without relying on cancellation.
+These finite-sample slopes motivated the argument; they are not its justification.</p>
+
+<details><summary>Robustness checks and the smoother-truth surprise</summary>
+<p>Three additional settings use 200 trajectories each, again to \(n=100{,}000\).</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Alternative</th><th>Selection of opt: 1,000 → 100,000</th></tr></thead><tbody>
+<tr><td>Main: \(s=1\), cap 400</td><td>over40</td><td>0.600 → 0.953</td></tr>
+<tr><td>Cap 1,200</td><td>over40</td><td>0.650 → 0.955</td></tr>
+<tr><td>Cap 1,200; log-adjusted coefficients</td><td>over40</td><td>0.945 → 1.000</td></tr>
+<tr><td>Smoother truth: \(s=2\), cap 400</td><td>over30 (\(a=0.30\))</td><td>0.265 → 0.740</td></tr>
+</tbody></table></div>
+<p>The log adjustment divides coefficients by \(1+\log k\), making the corresponding infinite series have finite Sobolev norm at the declared smoothness.
+Larger cutoffs give similar conclusions in the tested range.</p>
+<figure><img src="figures/robustness.png" alt="Pairwise selection and signal-to-noise ratios across four settings" loading="lazy">
+<figcaption>Robustness settings. The selection curves refer to the rate-optimal exponent, which need not minimize finite-sample risk.</figcaption></figure>
+<p>The smoother-truth run initially selects <code>over30</code> more often than <code>opt</code>.
+An exact calculation shows that the expected cumulative score favors <code>over30</code> until about \(n=9{,}844\) for \(\xi=1\).
+Current-risk rankings switch 16 times before about 32,800 training points because the rounded model dimensions grow in jumps.
+Thus “rate-optimal” does not mean best at every finite sample size. Current risk and cumulative weighted risk must be checked separately.</p>
+</details>
+
+<h2 id="s4"><span class="secnum">4</span>A direct consistency proof</h2>
+<p>The general theorem controls the conditional-risk term B through estimator stability, and its sufficient condition fails at equality.
+Our proof instead uses the projection estimator’s squared-coefficient structure to bound B directly. The original stability exponent is unchanged.</p>
+<div class="callout"><span class="ctitle">Theorem — Projection-estimator consistency (draft)</span>
+<p>Observe i.i.d. pairs \(Y=f_0(X)+\varepsilon\), with \(\mathbb E[\varepsilon\mid X]=0\).
+Assume \(|Y|\le M\), \(\operatorname{Var}(\varepsilon\mid X)\ge\sigma^2&gt;0\), and a uniformly bounded orthonormal basis in \(L^2(P_X)\),
+with \(f_0=\sum_j\theta_j\phi_j\) and \(\sum_jj^{2s}\theta_j^2\le R^2\), \(s&gt;1/2\).
+Use sample-average projection coefficients, uncapped dimensions \(J_g(m)=\lceil m^\beta\rceil\), \(J_h(m)=\lceil m^\alpha\rceil\),
+and a fixed burn-in \(n_0\ge1\). If \(0&lt;\beta&lt;\alpha&lt;1\) and \(2s\beta+\alpha&gt;1\), then for each fixed \(\xi\ge0\),</p>
 \[
-\mathbb E\|H_i\|_{L^2}^2=
-\sum_{j=J_g}^{J_h-1}\left(\frac{V_j}{i-1}+\theta_j^2\right),
-\qquad V_j=\operatorname{Var}(Y\phi_j(X)).
+\Pr\{\mathrm{RV}_n(h)\le\mathrm{RV}_n(g)\}
+\le C\bigl(n^{-\alpha}+n^{-(1-\alpha)}\bigr)\longrightarrow0.
 \]
+<p>The constant \(C\) does not depend on \(n\). For \(\beta=1/(2s+1)\), the condition is exactly \(\alpha&gt;\beta\).</p>
 </div>
-<p>This accounts for the shared training data. The individual-candidate formula
-\(\operatorname{Var}(C_n)=4\sigma^2\sum i^{2\xi}m_i\) also holds, but is not the variance plotted above.
-Run <code>check_paired_variance.py</code> to compare the exact paired standard deviation with the simulation.</p>
-<p>For an idealized uncapped series model with the stated power-law bias and variance behavior,
-the individual overfitting term has standard deviation of order \(n^{\xi+\alpha/2}\), while the expected score gap
-has order \(n^{\xi+\alpha}\). These are theoretical predictions under those assumptions, not limiting rates of this capped experiment.
-The exact finite-model calculation gives a local signal slope near 1.59 at \(n\approx6\times10^4\)
-and 1.52 at \(n\approx1.5\times10^6\); this drift alone does not establish convergence to 1.4.</p>
+<p>The positive lower bound on noise variance is an added condition: it guarantees that sufficiently many extra coefficients impose a genuine variance cost.
+The theorem concerns the original wRV selector and uncapped sequences. It is separate from the capped simulation experiment.</p>
 
-<h3 id="s3-4"><span class="secnum">3.4</span>Robustness: could these results be artifacts of the setup?</h3>
-<p>The main run uses one truth, one smoothness level and a 400-term cap. Any of these could drive the results, so I reran the
-simulation in three changed settings, each with 200 trajectories to \(n = 100{,}000\). All four built-in checks passed in every run.</p>
-<ul>
-  <li><strong>Larger cutoff.</strong> The same truth law, extended to 1,200 terms, with every candidate capped at 1,200.</li>
-  <li><strong>Log-adjusted truth.</strong> Coefficients \(0.65\,k^{-3/2}/(1+\log k)\), which have a finite Sobolev-1 norm without any cap. Cap 1,200.</li>
-  <li><strong>Smoother truth, \(s = 2\).</strong> Coefficients \(0.65\,k^{-5/2}\). The optimal exponent becomes \(1/5\), and <code>over30</code> (\(a = 0.30\)) is the mild overfitter.</li>
-</ul>
-<figure>
-  <img src="figures/robustness.png" alt="Selection probability and signal-to-noise ratio across settings">
-  <figcaption>Left: share of trajectories in which wRV picks <code>opt</code> over the mildest overfitter, with 95% intervals, \(\xi = 1\). Right: mean signal gap divided by the standard deviation of the combined fluctuation.</figcaption>
-</figure>
-<table>
-  <tr><th>Setting (opt vs mildest overfitter, \(\xi = 1\))</th><th>P(correct), \(n=10^3\)</th><th>P(correct), \(n=10^5\)</th><th>Var ratio</th><th>corr\((\Delta B, -\Delta C)\)</th><th>Slopes: signal / noise</th></tr>
-  <tr><td>Main: \(s=1\), cap 400, vs over40</td><td class="num">0.60</td><td class="num">0.95</td><td class="num">0.65&ndash;0.79</td><td class="num">&minus;0.29</td><td class="num">1.60 / 1.28</td></tr>
-  <tr><td>Cap 1,200, vs over40</td><td class="num">0.65</td><td class="num">0.96</td><td class="num">0.65&ndash;0.79</td><td class="num">&minus;0.29</td><td class="num">1.60 / 1.31</td></tr>
-  <tr><td>Log-adjusted truth, vs over40</td><td class="num">0.95</td><td class="num">1.00</td><td class="num">0.57&ndash;0.69</td><td class="num">&minus;0.38</td><td class="num">1.48 / 1.30</td></tr>
-  <tr><td>\(s = 2\), cap 400, vs over30</td><td class="num">0.27</td><td class="num">0.74</td><td class="num">0.71&ndash;0.81</td><td class="num">&minus;0.29</td><td class="num">see below / 1.11</td></tr>
-</table>
-<p>Three patterns appeared in every setting over the tested range. First, the cancellation was modest and roughly constant:
-the variance of the combined fluctuation was 53 to 81 percent of the sum of the separate variances across all overfitting comparisons
-(73 to 90 percent in standard-deviation terms), with no clear trend in \(n\). A finite simulation cannot show that this ratio stays constant as \(n \to \infty\).
-Second, the cancellation always came from a negative correlation between \(\Delta B\) and \(-\Delta C\) (about \(-0.3\) to \(-0.4\)).
-Third, the combined noise grew more slowly than the signal gap. Tripling the cutoff gave similar selection results at these sample sizes, which is expected, since the
-400-term cap does not bind for <code>over40</code> below about 3 million points.</p>
+<h3>Why the B term is smaller than the signal</h3>
+<p>Let \(\delta_{j,m}=\hat\theta_{j,m}-\theta_j\) and \(I_m=\{J_g(m),\ldots,J_h(m)-1\}\).
+Orthonormality gives the conditional risk difference</p>
+\[
+d_m=\sum_{j\in I_m}(\delta_{j,m}^2-\theta_j^2).
+\]
+<p>There are about \(m^\alpha\) extra coefficients.
+The signal satisfies \(\mathbb E d_m\ge c m^{\alpha-1}\) for large \(m\): the extra variance dominates the removed bias.
+For the fluctuation, a fourth-moment expansion and Bessel’s inequality give</p>
+\[
+\operatorname{Var}(d_m)\le C\left(\frac{|I_m|^2}{m^3}+\frac{|I_m|}{m^2}\right)
+\le C m^{\alpha-2}.
+\]
+<p><strong>The key is the linear second term.</strong> Coefficient errors are not independent, but the sum of their squared covariances is bounded by a constant times \(|I_m|\), rather than \(|I_m|^2\).
+Consequently, even allowing perfect dependence between successive training times,</p>
+\[
+\operatorname{sd}(\Delta B_n)\le\sum_{i=n_0+1}^n i^\xi\operatorname{sd}(d_{i-1})
+\le C n^{\xi+\alpha/2}.
+\]
+<p>The full score gap is \(S_n+\Delta B_n+\mathcal M_n\), where \(S_n\ge c n^{\xi+\alpha}\) is the signal and \(\mathcal M_n=\Delta A_n-\Delta C_n\) is a martingale.
+Fourth-moment bounds yield</p>
+\[
+\operatorname{Var}(\mathcal M_n)\le C\left(n^{2\xi+\alpha}+n^{2\xi+3\alpha-1}\right).
+\]
+<p>Chebyshev’s inequality now gives the theorem’s error bound.
+For \(\alpha&gt;1/2\), the second martingale bound can dominate, but its standard deviation is still smaller than the signal because \(\alpha&lt;1\).
+No covariance cancellation is required.</p>
+<p><a href="theory/consistency_proof.pdf">Read the full proof (PDF)</a> · <a href="theory/consistency_proof.tex">LaTeX source</a></p>
+<p class="status">The argument has received AI review and numerical checks, not formal verification or documented expert review.
+A targeted literature search found no matching resolution; novelty is not established. This does not settle the boundary for arbitrary estimators.</p>
 
-<p>The \(s = 2\) run looks like a failure at first: at \(n = 1{,}000\), wRV picks the overfitter 73% of the time. Two exact quantities,
-computed from the risk formula, explain why. They answer different questions, so both are worth checking.</p>
-<ul>
-  <li><strong>Current risk.</strong> Which model predicts the next point better, given the data so far. For \(s = 2\) the optimal model size
-      \(J(m) = \lceil m^{1/5} \rceil\) grows very slowly and only in steps, at exact fifth powers (1,024, 3,125, 7,776, 32,768). Right after each step, <code>opt</code>
-      has the lower risk. Then it keeps the same number of terms for thousands of points: its variance keeps falling but its bias stays fixed, while
-      <code>over30</code> keeps adding terms and catches up. So the ranking switches 16 times between 100 and 32,800 points. <code>over30</code> is ahead
-      for about 21% of that range, in windows such as 250 to 1,024 and 4,460 to 7,776.</li>
-  <li><strong>Expected wRV score.</strong> wRV compares cumulative weighted scores, starting after the 100-point burn-in. The expected score gap
-      \(\sum_{i>100} i^{\xi}(m_{\text{over30},i} - m_{\text{opt},i})\) remembers those windows. With \(\xi = 1\), it favors <code>over30</code>
-      until \(n \approx 9{,}840\), mostly because of the long window from 4,460 to 7,776. With \(\xi = 0\) it does so until \(n \approx 33{,}470\). The value saved by the simulation
-      matches an independent recomputation to a relative error of \(10^{-13}\).</li>
-</ul>
-<p>At the recorded checkpoints from 1,000 through 6,310, the expected cumulative score favors <code>over30</code>, and wRV picks <code>opt</code> less than half the time.
-In that range, picking <code>over30</code> is what the score is designed to reward. From 10,000 onward the expected score favors <code>opt</code>, and the
-probability of choosing it climbs to 0.74 at 100,000.</p>
-<p>Rate optimality describes how the error shrinks as \(n \to \infty\). It does not guarantee the smallest current risk or the smallest expected score at a given
-sample size, especially when the model size grows slowly and in integer steps. This experiment compares particular sequences with fixed constants.</p>
-<div class="callout note"><span class="ctitle">Lesson</span>When a validation method seems to pick the "wrong" model, check two things before calling it a failure. Which model has lower risk right now?
-And which one does the method's own expected score favor? They can disagree, because the score remembers the past. Here, wRV's early choices agreed with its expected score.</div>
-
-<h3 id="s3-5"><span class="secnum">3.5</span>Exact variance of the paired \(B\) term</h3>
+<details id="exact-details"><summary>Technical details: exact B variance and B–C covariance</summary>
+<p>The following covariance calculation uses the simulation’s independent symmetric noise \(\varepsilon=\pm\sigma\).
+It is a separate finite-model result; the consistency theorem above allows more general conditional mean-zero noise.</p>
+<h3>Exact variance of the paired B term</h3>
 <p>For this projection estimator, the paired B term has a finite-sample variance formula.
 Write \(Z_{t,j}=Y_t\phi_j(X_t)-\theta_j\), \(\bar Z_{m,j}=m^{-1}\sum_{t=1}^mZ_{t,j}\),
 and let \(I_m=\{J_g(m),\ldots,J_h(m)-1\}\) be the band included only by the larger model.
@@ -367,7 +320,7 @@ The deterministic bias difference disappears after centering, giving</p>
 K_{IJ}=\sum_{j\in I,k\in J}
 \left(\mathbb E[Z_j^2Z_k^2]-\Gamma_{jj}\Gamma_{kk}-2\Gamma_{jk}^2\right).
 \]
-<div class="callout"><span class="ctitle">Lemma 2 — Covariance of squared coefficient errors at two training times</span>
+<div class="callout"><span class="ctitle">Lemma — Covariance of squared coefficient errors at two training times</span>
 <p>Expanding fourth moments of independent, centered observations gives, for \(m\le\ell\),</p>
 \[
 \operatorname{Cov}\left(\sum_{j\in I}\bar Z_{m,j}^2,
@@ -380,26 +333,26 @@ and the two cross-pairings each have \(m^2\) contributions. Dividing by \(m^2\el
 This allows different, overlapping bands and correlated coefficients.</p>
 <p>The exact variance is obtained by weighting and summing these covariances over all pairs of training times, including the diagonal.
 <code>exact_b_variance.py</code> computes the required moments by deterministic quadrature and groups equal bands to avoid a quadratic loop over times.</p>
-<table>
+<div class="table-wrap"><table>
 <tr><th>Weight</th><th>Exact sd at 100,000</th><th>Simulated sd</th><th>Simulated / exact</th></tr>
-<tr><td>\(\xi=0\)</td><td>32.340</td><td>31.655</td><td>0.979</td></tr>
-<tr><td>\(\xi=1\)</td><td>1,263,357</td><td>1,204,791</td><td>0.954</td></tr>
+<tr><td>\(\xi=0\)</td><td>32.338</td><td>31.655</td><td>0.979</td></tr>
+<tr><td>\(\xi=1\)</td><td>1,263,356</td><td>1,204,790</td><td>0.954</td></tr>
 <tr><td>\(\xi=2\)</td><td>8.1651e10</td><td>7.7860e10</td><td>0.954</td></tr>
-</table>
+</table></div>
 <p>The saved 400-trajectory simulation agrees within about 5% at these endpoints. This is a check of the formula for the finite model,
-not a proof of the asymptotic B rate or selection consistency. The remaining theoretical task is to bound the band sums uniformly as dimension grows.
+not by itself a proof of an asymptotic rate or selection consistency. The theorem above supplies a separate uniform bound for the uncapped model.
 This extension was AI-assisted and should be independently understood and checked before presentation.</p>
 <p>Two separately written derivations of this formula (<code>exact_b_variance.py</code> and <code>check_B_variance.py</code>) give the same values
 to every printed digit. A larger validation run, with 10,000 trajectories up to \(n = 3{,}000\), puts the simulated standard deviation within 2.2% of the exact one.</p>
 
-<h3 id="s3-6"><span class="secnum">3.6</span>Where the cancellation comes from</h3>
-<p>Finding 2 showed that the partial cancellation comes almost entirely from \(\Delta B\) and \(\Delta C\). The same algebra gives their covariance exactly,
+<h3>Exact covariance of B and C</h3>
+<p>The cancellation experiment showed that the partial cancellation comes almost entirely from \(\Delta B\) and \(\Delta C\). The same algebra gives their covariance exactly,
 and it explains the mechanism. Write \(H = \hat f_h - \hat f_g = \sum_{l \in I} \hat\theta_l \phi_l\) for the extra part of the larger model, so that
 \(\Delta C_n = 2\sum_i w_i\,\varepsilon_i\,H_{i-1}(X_i)\).</p>
 <p>Point \(i\) plays two roles. It is scored once, which enters \(\Delta C\), and then it becomes training data for every later fit, which enters \(\Delta B\).
 Split a later coefficient error into past, present and future parts, \(\bar Z_{k-1,j} = (P_j + Z_{i,j} + R_j)/(k-1)\). The future part \(R\) is independent with mean zero,
 and \(\mathbb E[\varepsilon_i] = 0\) removes the purely past part. What survives is, for \(k - 1 \ge i\),</p>
-<div class="callout"><span class="ctitle">Lemma 3 — One noisy point enters both terms</span>
+<div class="callout"><span class="ctitle">Lemma — One noisy point enters both terms</span>
 \[
 \operatorname{Cov}\!\left(\varepsilon_i H_{i-1}(X_i),\ \bar Z_{k-1,j}^2\right)
 = \frac{2\sigma^2 V_j\,\mathbf 1\{j \in I_{i-1}\} \;+\; 2\sigma^2 \sum_{l \in I_{i-1}} \theta_l M_{lj}}{(k-1)^2},
@@ -408,7 +361,7 @@ and \(\mathbb E[\varepsilon_i] = 0\) removes the purely past part. What survives
 </div>
 <p>and zero when \(k - 1 < i\). The first term comes from \(\mathbb E[\varepsilon_i Z_{i,j} \mid X_i] = \sigma^2\phi_j(X_i)\) together with orthonormality,
 \(\mathbb E_X[H(X)\phi_j(X)] = \hat\theta_j\). The second comes from the odd part of \(Z_{i,j}^2\) in \(\varepsilon_i\). Summing with the weights gives</p>
-<div class="callout"><span class="ctitle">Proposition 1 — Exact covariance of the paired \(B\) and \(C\) terms (finite model)</span>
+<div class="callout"><span class="ctitle">Proposition — Exact covariance of the paired \(B\) and \(C\) terms (finite model)</span>
 \[
 \operatorname{Cov}(\Delta B_n, \Delta C_n) = 2\sum_{i} \sum_{k > i} w_i w_k \sum_{j \in I_{k-1}}
 \frac{2\sigma^2 V_j\,\mathbf 1\{j \in I_{i-1}\} + 2\sigma^2 \sum_{l \in I_{i-1}} \theta_l M_{lj}}{(k-1)^2}.
@@ -416,8 +369,8 @@ and \(\mathbb E[\varepsilon_i] = 0\) removes the purely past part. What survives
 </div>
 <p>In words: when the overfitting model's extra terms happen to line up with the noise at point \(i\), it predicts that point unusually well.
 That makes \(\Delta C\) large and <em>lowers</em> its score. The same noisy point then joins the training data and pushes those same extra coefficients further from the truth,
-which makes \(\Delta B\) large and <em>raises</em> its score later. The model pays back its lucky prediction. The first term, the direct pay-back, accounts for at least 97% of the covariance.</p>
-<table>
+which makes \(\Delta B\) large and <em>raises</em> its score later. The model pays back its lucky prediction. The first term accounts for at least 97% of the covariance in the checked comparisons.</p>
+<div class="table-wrap"><table>
   <tr><th>Comparison, \(\xi\)</th><th>Exact corr\((\Delta B, -\Delta C)\)</th><th>Simulated, 10,000 trajectories</th><th>Simulated, main run</th></tr>
   <tr><td>opt vs over40, \(\xi = 0\)</td><td class="num">-0.299 (n = 3,000); -0.329 (n = 100,000)</td><td class="num">-0.298</td><td class="num">-0.337</td></tr>
   <tr><td>opt vs over40, \(\xi = 1\)</td><td class="num">-0.270 (n = 3,000); -0.286 (n = 100,000)</td><td class="num">-0.273</td><td class="num">-0.231</td></tr>
@@ -425,89 +378,60 @@ which makes \(\Delta B\) large and <em>raises</em> its score later. The model pa
   <tr><td>opt vs over50, \(\xi = 0\)</td><td class="num">-0.387 (n = 3,000); -0.427 (n = 100,000)</td><td class="num">-0.381</td><td class="num">-0.472</td></tr>
   <tr><td>opt vs over50, \(\xi = 1\)</td><td class="num">-0.329 (n = 3,000); -0.350 (n = 100,000)</td><td class="num">-0.332</td><td class="num">-0.349</td></tr>
   <tr><td>opt vs over50, \(\xi = 2\)</td><td class="num">-0.284 (n = 3,000); -0.299 (n = 100,000)</td><td class="num">-0.290</td><td class="num">-0.288</td></tr>
-</table>
+</table></div>
 <p>The exact correlation matches the large validation run to within 0.03, and stays between &minus;0.43 and &minus;0.24 up to \(n = 100{,}000\).
 Its size changes slowly with \(n\), which is consistent with the roughly constant cancellation ratio in Finding 2. As with the B variance, this is an exact
 finite-model result checked by simulation. It does not by itself say what happens as \(n \to \infty\).
 <code>check_BC_covariance.py</code> computes it.</p>
 
-<h2 id="s4"><span class="secnum">4</span>A proof for the projection estimator</h2>
-<p>The paper notes that the \(A\) and \(C\) terms can be concentrated without the stability condition, so the boundary problem comes from \(B\)<sup class="cite"><a href="#ref-1">[1]</a></sup>. Lei's later stability-based theory of cross-validation<sup class="cite"><a href="#ref-2">[2]</a></sup> re-derives the same consistency result by bounding the terms separately, so it does not remove the boundary either.
-In the simulations, \(\Delta B\) grew at about the same rate as \(\Delta C\), more slowly than the signal. That suggested computing \(B\)'s size directly for the projection estimator, using its explicit coefficient averages, instead of bounding it through general stability. Doing so gives a proof.</p>
 
-<div class="callout"><span class="ctitle">Theorem 1 — wRV is consistent at the overfitting boundary (projection estimator)</span>
-Let the basis be orthonormal and uniformly bounded (the trigonometric basis is one example). Assume bounded outcomes \(|Y| \le M\), noise variance \(\mathrm{Var}(\varepsilon \mid X) \ge \sigma^2 > 0\), and Sobolev smoothness \(\sum_j j^{2s}\theta_j^2 \le R^2\) with \(s > 1/2\).
-Compare \(J_g(m) = \lceil m^{\beta} \rceil\) with \(J_h(m) = \lceil m^{\alpha} \rceil\), where \(\beta < \alpha < 1\) and \(2s\beta + \alpha > 1\). Then for every \(\xi \ge 0\),
-\[
-\Pr\bigl(\mathrm{RV}_n(h) \le \mathrm{RV}_n(g)\bigr) \le C\bigl(n^{-\alpha} + n^{-(1-\alpha)}\bigr) \to 0 .
-\]
-With \(\beta = 1/(2s+1)\), the condition \(2s\beta + \alpha > 1\) is exactly \(\alpha > 1/(2s+1)\). So wRV picks the rate-optimal sequence over every consistent overfitting sequence.</div>
+</details>
 
-<p><strong>Proof idea.</strong> Write the score gap as signal \(+\ \Delta B + \mathcal M\), where \(\mathcal M = \Delta A - \Delta C\) is a martingale. Then bound each piece directly.</p>
+<h2 id="s5"><span class="secnum">5</span>AI use and verification</h2>
+<p>Claude assisted with reading, simulation code, figures, derivations, and the initial proof draft.
+Codex independently reviewed the implementation and mathematical arguments, checked formulas by direct summation and exact finite-model enumeration, and revised the exposition.
+The work followed a generate–evaluate–revise–verify loop. Several proposed explanations did not survive checking:</p>
 <ul>
-  <li><strong>Signal.</strong> Each coefficient's sampling variance satisfies \(V_j \ge \sigma^2\), by Cauchy&ndash;Schwarz. So the overfitter pays at least \(\sigma^2 m^{\alpha-1}/4\) extra risk per step, and the signal grows at least like \(n^{\xi+\alpha}\).</li>
-  <li><strong>Martingale part.</strong> Its variance is a sum of per-step second moments. Fourth-moment bounds for a bounded basis give \(\mathrm{Var}(\mathcal M_n) = O(n^{2\xi+\alpha} + n^{2\xi+3\alpha-1})\).</li>
-  <li><strong>The \(B\) term.</strong> At one training size \(m\), the risk gap \(D_m\) is a sum of about \(m^\alpha\) squared sample means. Expanding the fourth moment and using Bessel's inequality for the cross-coefficient terms gives \(\mathrm{Var}(D_m) \le C m^{\alpha-2}\). So \(D_m\) has standard deviation of order \(m^{\alpha/2-1}\), while its mean is of order \(m^{\alpha-1}\). The triangle inequality for standard deviations then gives \(\mathrm{sd}(\Delta B_n) \le \sum_i w_i\,\mathrm{sd}(D_{i-1}) \le C n^{\xi+\alpha/2}\). This allows the \(D_m\) at different times to be perfectly correlated.</li>
-  <li>Chebyshev's inequality then gives an error probability of order \(n^{2\xi+\alpha}/n^{2\xi+2\alpha} = n^{-\alpha}\), plus smaller terms.</li>
+<li><strong>Rounding.</strong> Floating-point evaluation put some exact powers just above an integer, so taking a ceiling added an unintended term. The model-size rule was corrected and the saved runs regenerated.</li>
+<li><strong>Finite-sample interpretation.</strong> Early choices in the \(s=2\) run were initially described using current risk alone. Exact calculations separated current risk from the cumulative score and revealed repeated crossings.</li>
+<li><strong>Overstated rates.</strong> Review distinguished finite-sample slopes from asymptotic bounds, capped simulations from uncapped theory, and corrected the martingale summary for \(\alpha&gt;1/2\).</li>
 </ul>
-<p>No cancellation is used. Each fluctuation term is of order \(n^{\xi+\alpha/2}\), smaller than the signal's \(n^{\xi+\alpha}\). The partial cancellation between \(B\) and \(C\) is real, but it only improves constants. The obstruction in the general theorem comes from how it turns a stability rate into a bound on \(B\), not from the true size of \(B\) for this estimator.
-The full proof is three pages: <a href="theory/consistency_proof.pdf">theory/consistency_proof.pdf</a>.</p>
+<p>The checks include leakage-free refitting, exact score recomposition, risk centering, independent moment calculations, and comparison with 10,000 validation trajectories.
+These checks were performed with AI assistance; independent expert review remains pending.</p>
 
-<table>
-  <tr><th>Exact finite-model check (\(\xi = 1\), \(\alpha = 0.4\))</th><th class="num">\(n = 3{,}000 \to 10^6\)</th><th>Theory</th></tr>
-  <tr><td>Local slope of \(\mathrm{sd}(\Delta B_n)\)</td><td class="num">1.29 &rarr; 1.24</td><td class="num">1.2</td></tr>
-  <tr><td>Local slope of \(\mathrm{sd}(\Delta C_n)\)</td><td class="num">1.23 &rarr; 1.21</td><td class="num">1.2</td></tr>
-  <tr><td>Local slope of the signal</td><td class="num">1.67 &rarr; 1.54</td><td class="num">1.4</td></tr>
-  <tr><td>Fluctuation &divide; signal</td><td class="num">2.7 &rarr; 0.33</td><td class="num">&rarr; 0</td></tr>
-</table>
-<p>Every exponent inequality used in the proof was also checked mechanically, across about 830,000 random parameter settings that satisfy the theorem's assumptions.</p>
+<h2 id="s6"><span class="secnum">6</span>Limits and next steps</h2>
+<p>The experiments cover four truth/cutoff settings and one noise scale. They demonstrate finite-sample behavior, not a worst-case asymptotic result.
+The main finite truth is a calibration device; its uncapped power-law extension would need a logarithmic adjustment to belong to the stated Sobolev ball.</p>
+<p>The 400-term cap begins affecting <code>over50</code> around 160,000 training points and <code>over40</code> around 3.2 million.
+Eventually the capped candidates coincide. Extending those curves cannot verify the uncapped theorem.</p>
+<p>The most useful next steps are expert review of the proof and a fuller novelty search.
+Extensions to other estimators or weaker tail assumptions remain separate questions.</p>
+<div class="callout"><span class="ctitle">What this project establishes</span><p>Finite-sample experiments identify modest cancellation and show improving selection.
+A separate direct argument gives a draft consistency proof for the specified projection estimators under explicit assumptions.
+In that setting, the proof does not need cancellation.</p></div>
 
-<div class="callout note"><span class="ctitle">Status</span>This is a draft proof, written with AI assistance and not yet checked independently by a person. It covers projection estimators on a bounded orthonormal basis with bounded outcomes, not every estimator covered by the general theorem. Before calling the problem resolved, each step should be checked by hand, and the literature should be searched more fully for an existing result of this kind. A simulation of the key variance formula for \(D_m\) at \(m = 2{,}000\) agreed with it to within 2% (28,000 repetitions).</div>
-
-<h3 id="s4-1"><span class="secnum">4.1</span>Limitations</h3>
-<ul>
-  <li>Four truth and cutoff settings, one noise level. None is a worst case over the Sobolev ball, which is what the theory controls.</li>
-  <li>The sample sizes cover two decades. Slopes are estimated from finite \(n\) and are still drifting.</li>
-  <li>Theorem 1 is specific to projection estimators on a bounded orthonormal basis and assumes bounded outcomes and noise variance bounded below. It does not settle the question for general estimators.</li>
-  <li>The truth has 400 basis coefficients and every candidate is capped at 400 terms. The cap starts affecting <code>over50</code> near 160,000 training points and <code>over40</code> near 3.2 million. Eventually <code>opt</code> also reaches 400, so the candidates coincide. This experiment cannot establish asymptotic selection consistency for uncapped sequences. Also, the uncapped coefficient law at the exact Sobolev boundary would require a logarithmic adjustment to have finite Sobolev norm; the log-adjusted robustness run uses such a truth.
-</ul>
-
-<h3 id="s4-2"><span class="secnum">4.2</span>Next steps</h3>
-<ul>
-  <li>Check Theorem 1 line by line by hand, and search the literature (starting with Lei, 2025) for an existing result.</li>
-  <li>Extend the argument to other linear smoothers with explicit forms, such as ridge-type series estimators or local polynomials.</li>
-  <li>Try a truth built to be hard for the optimal sequence (coefficients concentrated near its cutoff), and a heavier-tailed but still bounded noise.</li>
-  <li>For \(s = 2\), run past \(n = 10^6\) to see whether selection approaches 1 once the overfitter loses its finite-sample advantage.</li>
-</ul>
-
-<h2 id="s5"><span class="secnum">5</span>How AI was used, and how it was checked</h2>
-<div class="todo">Ben: rewrite this section in your own words. It is graded (rubric item 5), and you will be asked about it in the presentation.
-Keep the concrete details: what the AI produced, what went wrong, what you checked yourself.</div>
-<ul>
-  <li><strong>Reading.</strong> Claude summarized the paper's setup and located equation (15), Section 6.1 and the stability condition (23).
-      The first version of the code (September) was built from the course page alone, because the PDF could not be fetched at the time.
-      In November the three-term split was checked against equation (15) and the boundary equality against (23). [Ben: say what you checked yourself.]</li>
-  <li><strong>Code.</strong> Claude wrote the simulation. It was not trusted until it passed four checks that can be explained without the AI:
-      orthonormality, a from-scratch refit to rule out leakage, an exact recomposition of the score, and the centering check (table above).</li>
-  <li><strong>Interpretation.</strong> The slope finding came out of the simulation, not from a prediction. The martingale variance for \(C\)
-      was then used to check whether it was plausible, and the exact risk formula to separate a real rate gap from a pre-asymptotic one.
-      [Ben: rederive the \(C\) variance yourself so you can explain it in the talk.]</li>
-  <li><strong>What went wrong.</strong> [Ben: add real examples, e.g. a first version that disagreed, a claim that did not hold up, a change of design.]</li>
-</ul>
-
-<h2 id="s6"><span class="secnum">6</span>Reproduce</h2>
+<h2 id="reproduce"><span class="secnum">7</span>Reproduce the results</h2>
+<p>From the <a href="https://github.com/benz3927/rolling-validation-overfitting">repository</a>, install NumPy and Matplotlib.
+The first commands check saved data; they do not repeat the main simulation.</p>
 <pre>pip install numpy matplotlib
-python3 wrv_sim.py --reps 400 --nmax 100000   # about 7 minutes on 2 cores; writes results.json
-python3 plot_results.py results.json          # figures/ and summary.json
-python3 exact_signal_rate.py                  # finite-model local signal slope
-python3 check_paired_variance.py               # exact paired C variance vs simulation
-python3 exact_b_variance.py                    # exact paired B variance vs simulation
-python3 check_B_variance.py robustness/validation_n3000.json.gz      # second derivation, 10,000-trajectory check
-python3 check_BC_covariance.py robustness/validation_n3000.json.gz   # exact B-C covariance vs simulation
-./robustness/run_all.sh                        # three robustness runs, about 25 minutes
-python3 robustness/summarize.py                # robustness/summary.md and figures/robustness.png</pre>
-<p>Code and data: <a href="https://github.com/benz3927/rolling-validation-overfitting">GitHub repository</a>.</p>
-
+python3 check_paired_variance.py
+python3 exact_b_variance.py
+python3 check_B_variance.py robustness/validation_n3000.json.gz
+python3 check_BC_covariance.py robustness/validation_n3000.json.gz</pre>
+<details><summary>Optional numerical checks of the proof steps</summary>
+<pre>python3 check_proof_steps.py</pre>
+<p>This script includes fresh simulations and checks inequalities in the finite calibration model. It takes longer than checking saved results and does not formally verify the theorem.</p>
+</details>
+<details><summary>Regenerate simulations and figures</summary>
+<pre>python3 wrv_sim.py --reps 400 --nmax 100000
+python3 plot_results.py results.json
+./robustness/run_all.sh
+python3 robustness/summarize.py
+python3 exact_signal_rate.py</pre>
+<p>The main simulation originally took about seven minutes on two workers; robustness runs take longer.
+The JSON files record seeds, candidate exponents, weights, and simulation settings.
+The <a href="README.md">README</a> describes the remaining scripts and output files.</p>
+</details>
 
 <h2 id="references">References</h2>
 <ol class="refs">
@@ -519,6 +443,6 @@ python3 robustness/summarize.py                # robustness/summary.md and figur
 </ol>
 
 </main>
-<footer>Benjamin Zhao · Rutgers University, Fall 2026 · Code, data and every number on this page are reproducible from the <a href="https://github.com/benz3927/rolling-validation-overfitting">GitHub repository</a>. Built as a single static HTML file.</footer>
+<footer>Benjamin Zhao · Rutgers University, Fall 2026 · <a href="https://github.com/benz3927/rolling-validation-overfitting">Code and data</a></footer>
 </body>
 </html>
